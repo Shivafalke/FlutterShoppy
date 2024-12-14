@@ -1,0 +1,469 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(FlashSale());
+}
+
+class FlashSale extends StatefulWidget {
+  @override
+  _FlashSaleState createState() => _FlashSaleState();
+}
+
+class _FlashSaleState extends State<FlashSale> with SingleTickerProviderStateMixin {
+  String selectedTab = "20%"; // Default selected tab
+
+  late AnimationController _animationController;
+  late Animation<Offset> _chooseDiscountAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+
+    _chooseDiscountAnimation = Tween<Offset>(
+      begin: const Offset(-1, 0), // Off-screen to the left
+      end: Offset.zero,           // On-screen
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+
+    // Start animations after the widget builds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _animationController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final double horizontalPadding = screenSize.width * 0.03;
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          toolbarHeight: screenSize.height * 0.067,
+          title: const Text(
+            'Flash Sale',
+            style: TextStyle(
+              color: Color(0xFF202020),
+              fontFamily: 'Raleway',
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () {
+              Navigator.pop(context); // Pops the current page from the navigation stack
+            },
+          ),
+          actions: [
+            TimerWidget(),
+          ],
+        ),
+        body: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SlideTransition(
+                position: _chooseDiscountAnimation,
+                child: _buildSectionHeader(
+                  "Choose Your Discount",
+                  horizontalPadding: horizontalPadding,
+                ),
+              ),
+              _buildDiscountTabs(horizontalPadding),
+              const SizedBox(height: 5),
+              _buildSectionHeader(
+                "$selectedTab Discount",
+                showFilter: true,
+                horizontalPadding: horizontalPadding,
+              ),
+              _buildProductGrid(horizontalPadding),
+            ],
+          ),
+        ),
+        bottomNavigationBar: _buildBottomNavigationBar(),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title,
+      {bool showFilter = false, double horizontalPadding = 0}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 17.5,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          if (showFilter) const Icon(Icons.filter_list, color: Colors.black),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscountTabs(double horizontalPadding) {
+    final List<String> discounts = ["All", "10%", "20%", "30%", "40%", "50%"];
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: discounts.map((discount) {
+          final bool isSelected = selectedTab == discount;
+          return GestureDetector(
+            onTap: () { 
+               Navigator.pushNamed(context, '/storydotstap');
+              setState(() {
+                selectedTab = discount; // Update selected tab
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.blue : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                discount,
+                style: TextStyle(
+                  fontFamily: 'Raleway',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : Colors.black,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildProductGrid(double horizontalPadding) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double adjustedChildAspectRatio = screenWidth < 600 ? 0.69 : 0.7;
+
+    final crossAxisCount = screenWidth < 600
+        ? 2
+        : screenWidth < 1000
+            ? 3
+            : 4;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 0),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: screenWidth * 0.02,
+          mainAxisSpacing: screenWidth * 0.02,
+          childAspectRatio: adjustedChildAspectRatio,
+        ),
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return ProductCard(
+            imagePath: 'assets/images/img${13 + index}.png',
+            title: "Lorem ipsum dolor sit amet consectetur",
+            price: "16,00",
+            discountedPrice: "20,00",
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Timer Widget
+class TimerWidget extends StatefulWidget {
+  @override
+  _TimerWidgetState createState() => _TimerWidgetState();
+}
+
+class _TimerWidgetState extends State<TimerWidget> {
+  late Timer _timer;
+  Duration _timeLeft = const Duration(minutes: 36, seconds: 58); // Adjusted to hours
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_timeLeft.inSeconds > 0) {
+        setState(() {
+          _timeLeft = _timeLeft - const Duration(seconds: 1);
+        });
+      } else {
+        _timer.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  String _formatTime(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0'); // Ensures 2 digits for time
+    String hours = twoDigits(duration.inHours);
+    String minutes = twoDigits(duration.inMinutes.remainder(60));
+    String seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$hours:$minutes:$seconds"; // Return formatted time string
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.timer,
+            color: Colors.black,
+            size: 24,
+          ),
+          const SizedBox(width: 10),
+          _buildTimeBox(_timeLeft.inHours),
+          const SizedBox(width: 4),
+          _buildTimeBox(_timeLeft.inMinutes.remainder(60)),
+          const SizedBox(width: 4),
+          _buildTimeBox(_timeLeft.inSeconds.remainder(60)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeBox(int time) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.all(Radius.circular(9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 5,
+            offset: const Offset(1, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          time.toString().padLeft(2, '0'),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ProductCard extends StatelessWidget {
+  final String imagePath;
+  final String title;
+  final String price;
+  final String discountedPrice;
+
+  const ProductCard({
+    required this.imagePath,
+    required this.title,
+    required this.price,
+    required this.discountedPrice,
+  });
+
+  Widget buildFormattedPrice(String price) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '\$', 
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        ...price.split('').map((char) {
+          if (char == '6') {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0.0),
+              child: Transform.translate(
+                offset: const Offset(0, -0.8),
+                child: Text(
+                  char,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 0),
+            child: Text(
+              char,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 175,
+          height: 151,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.all(Radius.circular(9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                offset: const Offset(2, 5),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.all(Radius.circular(9)),
+            child: Stack(
+              children: [
+                Image.asset(
+                  imagePath,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xFFFF5790),
+                          Color(0xFFF81140),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: const Text(
+                      '-20%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF000000),
+          ),
+        ),
+        Row(
+          children: [
+            buildFormattedPrice(price),
+            const SizedBox(width: 8),
+            Text(
+              "\$$discountedPrice",
+              style: const TextStyle(
+                fontSize: 14,
+                decoration: TextDecoration.lineThrough,
+                color: Color(0xFFF1AEAE),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+Widget _buildBottomNavigationBar() {
+    return BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      selectedItemColor: const Color(0xFF004CFF),
+      unselectedItemColor: Colors.black,
+      showSelectedLabels: false,
+      showUnselectedLabels: false,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Wishlist"),
+        BottomNavigationBarItem(icon: Icon(Icons.category_outlined), label: "Categories"),
+        BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: "Cart"),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+      ],
+      
+    );
+  }
